@@ -1,9 +1,13 @@
 """Household Brain for Moms — FastAPI application entry point."""
 
 import logging
+from dotenv import load_dotenv
 
-from fastapi import FastAPI, HTTPException
+load_dotenv()  # Load .env before any module reads os.environ
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from models.schema import AnalyzeRequest, HouseholdPlan
 from services.llm_service import analyze_text
@@ -27,10 +31,28 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# --- Ensure CORS headers on ALL error responses ---
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception: %s", exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.post("/analyze", response_model=HouseholdPlan)
@@ -40,7 +62,7 @@ async def analyze(request: AnalyzeRequest):
 
     try:
         raw_response = analyze_text(request.text)
-    except RuntimeError as e:
+    except Exception as e:
         logger.error("LLM service failed: %s", e)
         raise HTTPException(status_code=503, detail=str(e))
 
@@ -57,3 +79,4 @@ async def analyze(request: AnalyzeRequest):
 async def health():
     """Health check endpoint."""
     return {"status": "ok"}
+

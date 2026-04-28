@@ -17,9 +17,9 @@ Given a natural language message from a mom, extract and generate the following:
 - **events**: Detect upcoming events, milestones, or deadlines (doctor visits, birthdays, etc.).
 
 ## Generation Rules
-- **shopping_list**: A list of items to buy. Each item should be a string like "Diapers (Size 3) — estimated 2-week supply". Be specific about sizes based on baby age.
-- **timeline**: A list of actionable steps with approximate timing, e.g. "Buy diapers within 1-2 days", "Schedule 6-month checkup next month".
-- **recommendations**: Practical, contextual advice. Consider baby developmental stage.
+- **shopping_list**: Create detailed items to buy. Assign priority (High/Medium/Low) based on urgency. Calculate `buy_in_days` based on current supply. Provide a clear `reason`.
+- **timeline**: A list of actionable steps. Provide an `event_name`, approximate `date` (e.g. "Within 1-2 days" or "Next Month"), and contextual `notes`.
+- **recommendations**: Practical advice based on baby developmental stage. Assign a `confidence` score (0-100) and provide `reasoning` for the advice.
 
 ## Prediction Logic
 - A baby uses approximately 6 diapers per day.
@@ -33,11 +33,30 @@ Given a natural language message from a mom, extract and generate the following:
 
 ## Output Format
 Respond with STRICT JSON only. No markdown, no explanation, no text outside the JSON.
-The JSON must have exactly these keys:
+The JSON must have exactly these keys and nested structures:
 {
-  "shopping_list": ["item1", "item2"],
-  "timeline": ["step1", "step2"],
-  "recommendations": ["rec1", "rec2"],
+  "shopping_list": [
+    {
+      "item_name": "string",
+      "priority": "High|Medium|Low",
+      "buy_in_days": integer,
+      "reason": "string"
+    }
+  ],
+  "timeline": [
+    {
+      "event_name": "string",
+      "date": "string",
+      "notes": "string"
+    }
+  ],
+  "recommendations": [
+    {
+      "suggestion": "string",
+      "confidence": integer (0-100),
+      "reasoning": "string"
+    }
+  ],
   "uncertainty": null or "explanation string"
 }"""
 
@@ -62,7 +81,7 @@ def analyze_text(input_text: str) -> dict:
 
     try:
         response = client.chat.completions.create(
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": input_text},
